@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const compression = require("compression");
 require("dotenv").config();
 
 // Route Imports
@@ -15,6 +16,13 @@ const reviewRoutes = require("./routes/reviewRoutes");
 const discountRoutes = require("./routes/discountRoutes");
 
 const app = express();
+
+// Trust proxy for accurate rate limiting behind Vercel/Nginx
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
+app.use(compression()); // Compress all responses
 
 console.log(`🚀 GENZIKART BACKEND starting in ${process.env.NODE_ENV || 'development'} mode...`);
 
@@ -47,7 +55,7 @@ mongoose.connect(process.env.MONGO_URI)
     });
 
 /* ✅ API ROUTES */
-app.get("/api/ping", (req, res) => res.json({ message: "pong", version: "DEBUG-5001" }));
+app.get("/api/ping", (req, res) => res.json({ message: "pong", version: "1.0.0" }));
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/customers", userRoutes); // Alias for admin dashboard
