@@ -36,3 +36,82 @@ exports.deleteUser = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+// Address Management Extensions
+exports.addAddress = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const newAddress = { ...req.body, isDefault: user.addresses.length === 0 };
+        user.addresses.push(newAddress);
+        await user.save();
+        res.status(201).json(user.addresses);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+};
+
+exports.updateAddress = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const addrIndex = user.addresses.findIndex(a => a._id.toString() === req.params.addressId);
+        if (addrIndex === -1) return res.status(404).json({ message: "Address not found" });
+
+        user.addresses[addrIndex] = { ...user.addresses[addrIndex].toObject(), ...req.body };
+        await user.save();
+        res.json(user.addresses);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+};
+
+exports.deleteAddress = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        user.addresses = user.addresses.filter(a => a._id.toString() !== req.params.addressId);
+        await user.save();
+        res.json(user.addresses);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+};
+
+exports.setDefaultAddress = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        user.addresses.forEach(addr => {
+            addr.isDefault = (addr._id.toString() === req.params.addressId);
+        });
+
+        await user.save();
+        res.json(user.addresses);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+};
+
+exports.updateMe = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { image } = req.body;
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { image },
+            { new: true }
+        );
+
+        if (!updatedUser) return res.status(404).json({ message: "User not found" });
+
+        res.json(updatedUser);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+};

@@ -4,6 +4,7 @@ const userSchema = new mongoose.Schema({
     name: { type: String, trim: true },
     email: { type: String, unique: true, lowercase: true, required: true },
     phone: String,
+    image: String,
 
     authProvider: {
         type: String,
@@ -28,14 +29,21 @@ const userSchema = new mongoose.Schema({
     spent: { type: Number, default: 0 },
     status: { type: String, default: 'active' },
 
-    // New profile fields
-    address: {
-        line1: { type: String, trim: true },
-        line2: { type: String, trim: true },
-        city: { type: String, trim: true },
-        state: { type: String, trim: true },
-        type: { type: String, enum: ['home', 'work'], default: 'home' }
-    },
+    // Address Book support
+    addresses: [{
+        fullName: { type: String, trim: true, required: true },
+        phone: { type: String, required: true },
+        alternatePhone: { type: String, trim: true },
+        pincode: { type: String, trim: true, required: true },
+        state: { type: String, trim: true, required: true },
+        city: { type: String, trim: true, required: true },
+        houseNo: { type: String, trim: true, required: true },
+        area: { type: String, trim: true, required: true },
+        landmark: { type: String, trim: true },
+        addressType: { type: String, enum: ['Home', 'Office'], default: 'Home' },
+        isDefault: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now }
+    }],
     whatsapp: String,
 
     // Email change verification

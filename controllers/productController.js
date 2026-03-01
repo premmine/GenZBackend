@@ -39,9 +39,14 @@ exports.getProducts = async (req, res) => {
 
 // Add new product
 exports.addProduct = async (req, res) => {
-    const newProduct = new Product(req.body);
-    await newProduct.save();
-    res.status(201).json(newProduct);
+    try {
+        const newProduct = new Product(req.body);
+        await newProduct.save();
+        res.status(201).json(newProduct);
+    } catch (err) {
+        console.error('Error adding product:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 };
 
 // Get single product by ID
@@ -57,12 +62,24 @@ exports.getProduct = async (req, res) => {
 
 // Update product
 exports.updateProduct = async (req, res) => {
-    const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updated);
+    try {
+        const updated = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updated) return res.status(404).json({ success: false, message: "Product not found" });
+        res.json(updated);
+    } catch (err) {
+        console.error('Error updating product:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 };
 
 // Delete product
 exports.deleteProduct = async (req, res) => {
-    await Product.findByIdAndDelete(req.params.id);
-    res.json({ message: "Product Deleted" });
+    try {
+        const deleted = await Product.findByIdAndDelete(req.params.id);
+        if (!deleted) return res.status(404).json({ success: false, message: "Product not found" });
+        res.json({ success: true, message: "Product Deleted" });
+    } catch (err) {
+        console.error('Error deleting product:', err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 };

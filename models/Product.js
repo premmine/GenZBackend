@@ -5,7 +5,7 @@ const ProductSchema = new mongoose.Schema({
     category: { type: String, required: true },
     price: { type: Number, required: true },
     stock: { type: Number, required: true },
-    image: { type: String, default: "https://via.placeholder.com/150" },
+    image: { type: String, default: "" },
     status: { type: String, default: "In Stock" },
     bestseller: { type: Boolean, default: false },
     sku: { type: String },
