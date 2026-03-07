@@ -49,8 +49,8 @@ app.use(cors({
         if (origin) console.log('🔍 Incoming Request Origin:', origin);
 
         const allowedOrigins = [
-            'https://gen-z-backend.vercel.app',
-            'https://gen-z-backend.vercel.app',
+            'http://localhost:5001',
+            'http://localhost:5001',
             'http://localhost:3000',
             'http://localhost:5500',
             'http://127.0.0.1:5500',
