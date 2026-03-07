@@ -2,9 +2,7 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-// Ensure invoices directory exists
-const INVOICES_DIR = path.join(__dirname, '..', 'invoices');
-if (!fs.existsSync(INVOICES_DIR)) fs.mkdirSync(INVOICES_DIR, { recursive: true });
+
 
 // Company details
 const COMPANY = {
@@ -39,8 +37,14 @@ const COLORS = {
  */
 exports.generateInvoicePDF = (invoice) => {
     return new Promise((resolve, reject) => {
+        const dirPath = process.env.VERCEL
+            ? path.join('/tmp', 'invoices')
+            : path.join(__dirname, '..', 'invoices');
+
+        if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+
         const fileName = `${invoice.invoiceNumber}.pdf`;
-        const filePath = path.join(INVOICES_DIR, fileName);
+        const filePath = path.join(dirPath, fileName);
 
         const doc = new PDFDocument({
             size: 'A4',
