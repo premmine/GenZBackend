@@ -1,4 +1,6 @@
 const Ticket = require('../models/Ticket');
+const User = require('../models/User'); // Added User model
+const notificationController = require('./notificationController');
 
 exports.createTicket = async (req, res) => {
     try {
@@ -9,6 +11,22 @@ exports.createTicket = async (req, res) => {
             ticketId
         });
         await ticket.save();
+
+        // Fetch user details for notification
+        const user = await User.findById(req.user.id);
+
+        // Trigger Admin Notification
+        await notificationController.createNotificationInternal({
+            title: "New Support Ticket",
+            message: `Ticket ${ticketId} created regarding: ${ticket.subject}`,
+            type: "ticket",
+            name: user ? user.name : 'Guest',
+            referenceId: ticket._id,
+            email: user ? user.email : '',
+            phone: user ? user.phone : '',
+            priority: "high"
+        });
+
         res.status(201).json(ticket);
     } catch (err) {
         res.status(400).json({ message: err.message });
@@ -26,7 +44,8 @@ exports.getMyTickets = async (req, res) => {
 
 exports.getTicketById = async (req, res) => {
     try {
-        const ticket = await Ticket.findOne({ ticketId: req.params.id, userId: req.user.id });
+        const filter = req.user.role === 'admin' ? { ticketId: req.params.id } : { ticketId: req.params.id, userId: req.user.id };
+        const ticket = await Ticket.findOne(filter);
         if (!ticket) return res.status(404).json({ message: "Ticket not found" });
         res.json(ticket);
     } catch (err) {

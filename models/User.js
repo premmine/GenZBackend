@@ -31,16 +31,16 @@ const userSchema = new mongoose.Schema({
 
     // Address Book support
     addresses: [{
-        fullName: { type: String, trim: true, required: true },
+        name: { type: String, trim: true, required: true },
         phone: { type: String, required: true },
         alternatePhone: { type: String, trim: true },
         pincode: { type: String, trim: true, required: true },
         state: { type: String, trim: true, required: true },
         city: { type: String, trim: true, required: true },
-        houseNo: { type: String, trim: true, required: true },
-        area: { type: String, trim: true, required: true },
+        line1: { type: String, trim: true, required: true },
+        line2: { type: String, trim: true, required: true },
         landmark: { type: String, trim: true },
-        addressType: { type: String, enum: ['Home', 'Office'], default: 'Home' },
+        addressType: { type: String, enum: ['Home', 'Work', 'Office'], default: 'Home' },
         isDefault: { type: Boolean, default: false },
         createdAt: { type: Date, default: Date.now }
     }],

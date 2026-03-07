@@ -36,3 +36,28 @@ exports.deleteDiscount = async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 };
+
+exports.validateDiscount = async (req, res) => {
+    const { code, orderAmount } = req.body;
+    try {
+        const discount = await Discount.findOne({ code: code, status: 'active' });
+
+        if (!discount) {
+            return res.status(404).json({ message: "Invalid or inactive discount code" });
+        }
+
+        if (orderAmount < discount.minOrder) {
+            return res.status(400).json({
+                message: `Minimum order amount for this code is ₹${discount.minOrder}`
+            });
+        }
+
+        res.json({
+            code: discount.code,
+            type: discount.type,
+            value: discount.value
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
