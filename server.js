@@ -95,11 +95,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* ✅ DATABASE CONNECTION */
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI || '')
     .then(() => console.log("✅ MongoDB Connected Successfully"))
     .catch(err => {
         console.error("❌ MongoDB Connection Error:", err.message);
-        process.exit(1); // Stop server if DB connection fails
+        if (!process.env.VERCEL) {
+            process.exit(1); // Stop local server if DB connection fails
+        }
     });
 
 /* ✅ API ROUTES */
