@@ -10,7 +10,9 @@ exports.generateShippingLabelPDF = (order) => {
         try {
             const doc = new PDFDocument({ margin: 30, size: [288, 432] }); // 4x6 inch label
             const fileName = `Label_${order.id}.pdf`;
-            const dirPath = path.join(__dirname, '../labels');
+            const dirPath = process.env.VERCEL
+                ? path.join('/tmp', 'labels')
+                : path.join(__dirname, '../labels');
             if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 
             const filePath = path.join(dirPath, fileName);

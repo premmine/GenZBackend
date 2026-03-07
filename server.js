@@ -157,17 +157,19 @@ const PORT = process.env.PORT || 5001;
 const { execSync } = require('child_process');
 
 function startServer() {
-    // Ensure necessary directories exist
-    const fs = require('fs');
-    const path = require('path');
-    ['invoices', 'labels'].forEach(dir => {
-        const p = path.join(__dirname, dir);
-        if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-    });
+    // Only create directories and listen on a port if NOT on Vercel
+    if (!process.env.VERCEL) {
+        const fs = require('fs');
+        const path = require('path');
+        ['invoices', 'labels'].forEach(dir => {
+            const p = path.join(__dirname, dir);
+            if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+        });
 
-    server.listen(PORT, () => {
-        console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    });
+        server.listen(PORT, () => {
+            console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+        });
+    }
 }
 
 // Auto-recover from port conflicts (EADDRINUSE)
@@ -208,3 +210,6 @@ server.on('error', (err) => {
 });
 
 startServer();
+
+// Export the Express app for Vercel Serverless Functions
+module.exports = app;
