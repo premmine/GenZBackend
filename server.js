@@ -94,15 +94,62 @@ app.use("/api", limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-/* ✅ DATABASE CONNECTION */
-mongoose.connect(process.env.MONGO_URI || '')
-    .then(() => console.log("✅ MongoDB Connected Successfully"))
-    .catch(err => {
-        console.error("❌ MongoDB Connection Error:", err.message);
-        if (!process.env.VERCEL) {
-            process.exit(1); // Stop local server if DB connection fails
-        }
-    });
+/* ✅ DATABASE CONNECTION (Optimized for Vercel Serverless) */
+let cached = global.mongoose;
+
+if (!cached) {
+    cached = global.mongoose = { conn: null, promise: null };
+}
+
+async function connectDB() {
+    if (cached.conn) {
+        return cached.conn;
+    }
+
+    if (!cached.promise) {
+        const opts = {
+            bufferCommands: false, // Turn off buffering so errors fail fast instead of hanging for 10s
+            serverSelectionTimeoutMS: 5000 // Fail fast if we can't connect
+        };
+
+        console.log("⏳ Attempting to connect to MongoDB...");
+        cached.promise = mongoose.connect(process.env.MONGO_URI, opts)
+            .then(mongoose => {
+                console.log("✅ MongoDB Connected Successfully");
+                return mongoose;
+            })
+            .catch(err => {
+                console.error("❌ MongoDB Connection Error:", err.message);
+                cached.promise = null; // reset so we can try again
+                throw err;
+            });
+    }
+
+    try {
+        cached.conn = await cached.promise;
+    } catch (e) {
+        cached.promise = null;
+        throw e;
+    }
+
+    return cached.conn;
+}
+
+// Ensure the connection is established before accepting requests
+connectDB().catch(err => {
+    console.error("Critical DB Error:", err.message);
+    if (!process.env.VERCEL) process.exit(1);
+});
+
+// Block requests until DB is connected
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (err) {
+        res.status(500).json({ success: false, message: "Database connection failed", error: err.message });
+    }
+});
 
 /* ✅ API ROUTES */
 /* ✅ API ROUTES */

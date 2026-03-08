@@ -8,11 +8,11 @@ const { sendOTPEmail } = require("../utils/emailService");
 
 exports.sendOTP = async (req, res) => {
     try {
-        const { email } = req.body;
+        const email = req.body.email ? req.body.email.trim().toLowerCase() : null;
 
-        if (!email) return res.json({ error: true });
+        if (!email) return res.json({ success: false, message: "Email is required" });
 
-        console.log("🔥 SEND OTP:", email);
+        console.log("🔥 SEND OTP REQUEST:", email);
 
         let user = await User.findOne({ email });
 
@@ -27,21 +27,33 @@ exports.sendOTP = async (req, res) => {
                 otpExpires: Date.now() + 5 * 60 * 1000,
                 isVerified: false
             });
+            await user.save();
         } else {
-            // ✅ LOGIN FLOW
-            user.otpHash = otpHash;
-            user.otpExpires = Date.now() + 5 * 60 * 1000;
-            user.otpAttempts = 0;
+            // ✅ LOGIN FLOW: Use updateOne to bypass strict validation on old docs
+            const updateResult = await User.updateOne(
+                { _id: user._id },
+                {
+                    $set: {
+                        otpHash: otpHash,
+                        otpExpires: Date.now() + 5 * 60 * 1000,
+                        otpAttempts: 0
+                    }
+                }
+            );
+            console.log(`✅ User OTP updated: ${updateResult.modifiedCount} document(s)`);
         }
 
-        await user.save();
-        await sendOTPEmail(email, otp);
-
-        res.json({ success: true });
+        try {
+            await sendOTPEmail(email, otp);
+            res.json({ success: true, message: "OTP sent successfully" });
+        } catch (emailErr) {
+            console.error("❌ Email Dispatch Failed:", emailErr.message);
+            res.status(500).json({ success: false, message: "Email service failed. Please check server logs." });
+        }
 
     } catch (err) {
-        console.log("SEND OTP ERROR:", err);
-        res.json({ error: true });
+        console.error("❌ SEND OTP CONTROLLER ERROR:", err);
+        res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
 
@@ -49,35 +61,46 @@ exports.sendOTP = async (req, res) => {
 
 exports.verifyOTP = async (req, res) => {
     try {
-        const { email, otp } = req.body;
+        const email = req.body.email ? req.body.email.trim().toLowerCase() : null;
+        const { otp } = req.body;
 
         console.log("🔥 VERIFY OTP:", email);
 
         const user = await User.findOne({ email });
 
-        if (!user || user.otpExpires < Date.now())
-            return res.json({ error: true });
+        if (!user)
+            return res.json({ success: false, message: "User not found" });
+
+        if (user.otpExpires < Date.now())
+            return res.json({ success: false, message: "OTP has expired" });
 
         if (user.otpAttempts >= 3)
-            return res.json({ error: true });
+            return res.json({ success: false, message: "Too many failed attempts. Please request a new code." });
 
         const valid = await bcrypt.compare(otp, user.otpHash);
 
         if (!valid) {
-            user.otpAttempts++;
-            await user.save();
-            return res.json({ error: true });
+            await User.updateOne({ _id: user._id }, { $inc: { otpAttempts: 1 } });
+            return res.json({ success: false, message: "Invalid OTP code" });
         }
 
         // ✅ UPDATE USER DETAILS (For registration)
         const { name, phone } = req.body;
-        if (name) user.name = name;
-        if (phone) user.phone = phone;
+        const updateData = {
+            isVerified: true,
+            lastLogin: new Date()
+        };
 
-        user.isVerified = true;
-        user.lastLogin = new Date();
-        user.otpHash = undefined; // Clear OTP after use
-        await user.save();
+        if (name) updateData.name = name;
+        if (phone) updateData.phone = phone;
+
+        await User.updateOne(
+            { _id: user._id },
+            {
+                $set: updateData,
+                $unset: { otpHash: "" } // Clear OTP after use
+            }
+        );
 
         const token = jwt.sign(
             { id: user._id, role: user.role, email: user.email },
@@ -109,20 +132,20 @@ exports.verifyOTP = async (req, res) => {
 
 exports.checkUser = async (req, res) => {
     try {
-        const { email } = req.body;
+        const email = req.body.email ? req.body.email.trim().toLowerCase() : null;
 
         console.log("🔥 CHECK USER:", email);
 
         const user = await User.findOne({ email });
 
         if (!user || !user.isVerified)
-            return res.json({ exists: false });
+            return res.json({ success: false, exists: false, message: "User not found or unverified" });
 
-        res.json({ exists: true });
+        res.json({ success: true, exists: true });
 
     } catch (err) {
         console.log("CHECK USER ERROR:", err);
-        res.json({ exists: false });
+        res.status(500).json({ success: false, exists: false, message: "Internal server error" });
     }
 };
 /* ================= EMAIL CHANGE OTP ================= */

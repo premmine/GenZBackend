@@ -25,15 +25,20 @@ exports.sendOTPEmail = async (email, otp) => {
     console.log("📧 Sender:", process.env.EMAIL_USER);
     console.log("📧 Receiver:", email);
 
-    await transporter.sendMail({
-        from: `"Genzikart" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "Your OTP Code",
-        html: `<h2>Your OTP: ${otp}</h2>
-               <p>Valid for 5 minutes</p>`
-    });
-
-    console.log("✅ Email sent successfully!");
+    try {
+        const info = await transporter.sendMail({
+            from: `"Genzikart" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: "Your OTP Code",
+            html: `<h2>Your OTP: ${otp}</h2>
+                   <p>Valid for 5 minutes</p>`
+        });
+        console.log("✅ Email sent successfully! ID:", info.messageId);
+        return info;
+    } catch (error) {
+        console.error("❌ NODEMAILER SEND ERROR:", error.message);
+        throw error;
+    }
 };
 
 exports.sendBackInStockEmail = async (email, product) => {
