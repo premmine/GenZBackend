@@ -50,7 +50,7 @@ app.use(cors({
 
         const allowedOrigins = [
             'https://gen-z-backend.vercel.app',
-            'https://gen-z-backend.vercel.app',
+            'https://premmine.github.io',
             'http://localhost:3000',
             'http://localhost:5500',
             'http://127.0.0.1:5500',
