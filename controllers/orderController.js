@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const Discount = require('../models/Discount');
 const notificationController = require('./notificationController');
 
 exports.getOrders = async (req, res) => {
@@ -54,6 +55,14 @@ exports.addOrder = async (req, res) => {
         const order = new Order(orderData);
         await order.save();
 
+        // Increment discount usage if a discount was applied
+        if (req.body.discountApplied && req.body.discountApplied.code) {
+            await Discount.findOneAndUpdate(
+                { code: req.body.discountApplied.code },
+                { $inc: { usage: 1 } }
+            ).catch(err => console.error(`Failed to increment usage for discount ${req.body.discountApplied.code}:`, err));
+        }
+
         // Notification
         await notificationController.createNotificationInternal({
             title: "New Order",
@@ -92,6 +101,10 @@ exports.updateOrder = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
         if (!order) return res.status(404).json({ message: "Order not found" });
+
+        if (order.orderStatus === 'Delivered' || order.status === 'Delivered') {
+            return res.status(400).json({ message: "Delivered orders cannot be modified." });
+        }
 
         // Update fields
         Object.keys(req.body).forEach(key => {

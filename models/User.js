@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
         state: { type: String, trim: true, required: true },
         city: { type: String, trim: true, required: true },
         line1: { type: String, trim: true, required: true },
-        line2: { type: String, trim: true, required: true },
+        line2: { type: String, trim: true },
         landmark: { type: String, trim: true },
         addressType: { type: String, enum: ['Home', 'Work', 'Office'], default: 'Home' },
         isDefault: { type: Boolean, default: false },

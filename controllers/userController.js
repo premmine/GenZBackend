@@ -2,7 +2,42 @@ const User = require('../models/User');
 
 exports.getUsers = async (req, res) => {
     try {
-        const users = await User.find().sort({ createdAt: -1 });
+        const users = await User.aggregate([
+            {
+                $lookup: {
+                    from: 'orders',
+                    localField: 'email',
+                    foreignField: 'email',
+                    as: 'orderHistory'
+                }
+            },
+            {
+                $addFields: {
+                    orders: { $size: "$orderHistory" },
+                    spent: {
+                        $reduce: {
+                            input: "$orderHistory",
+                            initialValue: 0,
+                            in: {
+                                $add: [
+                                    "$$value",
+                                    { $cond: [{ $in: ["$$this.orderStatus", ["Cancelled", "Returned"]] }, 0, "$$this.totalAmount"] }
+                                ]
+                            }
+                        }
+                    },
+                    status: {
+                        $cond: [{ $eq: ["$isBlocked", true] }, 'blocked', 'active']
+                    }
+                }
+            },
+            {
+                $project: {
+                    orderHistory: 0 // Remove the large array to save bandwidth
+                }
+            },
+            { $sort: { createdAt: -1 } }
+        ]);
         res.json(users);
     } catch (err) {
         res.status(500).json({ message: err.message });

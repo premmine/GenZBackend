@@ -13,6 +13,10 @@ exports.updateShippingStatus = async (req, res) => {
 
         if (!order) return res.status(404).json({ message: 'Order not found' });
 
+        if (order.orderStatus === 'Delivered' || order.status === 'Delivered') {
+            return res.status(400).json({ success: false, message: 'Delivered orders cannot be modified or cancelled.' });
+        }
+
         // Update fields
         if (courierName) order.courierName = courierName;
         if (trackingId) order.trackingId = trackingId;

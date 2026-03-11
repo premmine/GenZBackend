@@ -59,6 +59,7 @@ const OrderSchema = new mongoose.Schema({
     courierName: { type: String, default: 'Genzi Logistics' },
     trackingId: { type: String },
     estimatedDeliveryDate: { type: String },
+    date: { type: String, default: () => new Date().toISOString().split('T')[0] },
 
     statusHistory: [
         {
