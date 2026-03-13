@@ -108,8 +108,22 @@ exports.verifyOTP = async (req, res) => {
             { expiresIn: "7d" }
         );
 
-        const addr = user.address || {};
-        const isProfileComplete = !!(user.name && user.phone && user.whatsapp && addr.line1 && addr.city && addr.state);
+        // Fetch the updated user to get the latest state (especially isVerified and any updated fields)
+        const updatedUser = await User.findById(user._id);
+        const addr = (updatedUser.addresses && updatedUser.addresses.length > 0)
+            ? (updatedUser.addresses.find(a => a.isDefault) || updatedUser.addresses[0])
+            : {};
+        
+        // Profile is complete if name, phone, whatsapp, and a valid address exist
+        const isProfileComplete = !!(
+            updatedUser.name && 
+            updatedUser.phone && 
+            updatedUser.whatsapp && 
+            addr.line1 && 
+            addr.city && 
+            addr.state && 
+            addr.pincode
+        );
 
         res.json({
             token,

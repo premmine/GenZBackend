@@ -21,6 +21,11 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 const shippingRoutes = require("./routes/shippingRoutes");
 
+// Controller imports for explicit routing
+const orderController = require("./controllers/orderController");
+const authMiddleware = require("./middlewares/authMiddleware");
+const ticketController = require("./controllers/ticketController");
+
 const app = express();
 const http = require('http');
 const server = http.createServer(app);
@@ -43,38 +48,12 @@ console.log(`🚀 GENZIKART BACKEND starting in ${process.env.NODE_ENV || 'devel
 app.use(helmet()); // Protects against common web vulnerabilities
 
 // Specialized CORS to allow local development & file access
+// ✅ STEP 4 — FIX CORS
 app.use(cors({
-    origin: (origin, callback) => {
-        // Log the origin for debugging
-        if (origin) console.log('🔍 Incoming Request Origin:', origin);
-
-        const allowedOrigins = [
-            'https://gen-z-backend.vercel.app',
-            'https://premmine.github.io',
-            'http://localhost:3000',
-            'http://localhost:5500',
-            'http://127.0.0.1:5500',
-            'null'
-        ];
-
-        // Allow if origin is null (file:///), matches allowed production domain, 
-        // or is a local development address on ANY port
-        const isLocal = !origin ||
-            origin === 'null' ||
-            origin.includes('localhost') ||
-            origin.includes('127.0.0.1') ||
-            origin.startsWith('chrome-extension://');
-
-        if (isLocal || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.log('🛑 CORS Blocked Origin:', origin);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
+    origin: "*",
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    optionsSuccessStatus: 200
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 
@@ -95,53 +74,40 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* ✅ DATABASE CONNECTION (Optimized for Vercel Serverless) */
+// MongoDB Global Cache for Vercel Serverless
 let cached = global.mongoose;
-
 if (!cached) {
     cached = global.mongoose = { conn: null, promise: null };
 }
 
-async function connectDB() {
-    if (cached.conn) {
-        return cached.conn;
-    }
-
-    if (!cached.promise) {
-        const opts = {
-            bufferCommands: false, // Turn off buffering so errors fail fast instead of hanging for 10s
-            serverSelectionTimeoutMS: 5000 // Fail fast if we can't connect
-        };
+// ✅ STEP 5 — VERIFY DATABASE CONNECTION
+const connectDB = async () => {
+    try {
+        if (mongoose.connection.readyState >= 1) return mongoose.connection;
 
         console.log("⏳ Attempting to connect to MongoDB...");
-        cached.promise = mongoose.connect(process.env.MONGO_URI, opts)
-            .then(mongoose => {
-                console.log("✅ MongoDB Connected Successfully");
-                return mongoose;
-            })
-            .catch(err => {
-                console.error("❌ MongoDB Connection Error:", err.message);
-                cached.promise = null; // reset so we can try again
-                throw err;
-            });
+        const conn = await mongoose.connect(process.env.MONGO_URI, {
+            serverSelectionTimeoutMS: 5000,
+            bufferCommands: false
+        });
+        console.log(`✅ MongoDB Connected Successfully: ${conn.connection.host}`);
+        return conn;
+    } catch (err) {
+        console.error(`❌ MongoDB Connection Error: ${err.message}`);
+        if (process.env.VERCEL) {
+            console.error("Critical: Database connection failed in production.");
+        } else {
+            console.warn("DB Connection failed, exiting local process...");
+            process.exit(1);
+        }
+        throw err;
     }
+};
 
-    try {
-        cached.conn = await cached.promise;
-    } catch (e) {
-        cached.promise = null;
-        throw e;
-    }
+// Initial connection attempt
+connectDB().catch(err => console.error("Initial DB connection failed:", err.message));
 
-    return cached.conn;
-}
-
-// Ensure the connection is established before accepting requests
-connectDB().catch(err => {
-    console.error("Critical DB Error:", err.message);
-    if (!process.env.VERCEL) process.exit(1);
-});
-
-// Block requests until DB is connected
+// Middleware to ensure DB connection for every request (resilient for serverless)
 app.use(async (req, res, next) => {
     try {
         await connectDB();
@@ -152,47 +118,55 @@ app.use(async (req, res, next) => {
 });
 
 /* ✅ API ROUTES */
-/* ✅ API ROUTES */
-app.get("/api/ping", (req, res) => res.json({
-    status: "online",
-    version: "1.0.3-diag",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
-}));
+// ✅ STEP 2 & 3 — SCAN & FIX ROUTES
+app.get("/api/ping", (req, res) => res.json({ status: "online", version: "1.0.6-prod", timestamp: new Date().toISOString() }));
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
-// Standardize routes
-app.use("/api/notifications", notificationRoutes); // Move up for priority
+// 👑 HIGH PRIORITY EXPLICT ROUTES (Matches Frontend Expectations Exactly)
+// ✅ STEP 7 — VERIFY SUPPORT TICKET API
+app.get("/api/user/orders", authMiddleware, orderController.getOrders);
+app.get("/api/user/tickets", authMiddleware, ticketController.getMyTickets);
+app.post("/api/support/create-ticket", authMiddleware, ticketController.createTicket);
+
+// Admin Specific Routes (Direct mount for maximum reliability)
+app.get("/api/admin/tickets", authMiddleware, ticketController.getAllTickets);
+app.get("/api/admin/ticket/:id", authMiddleware, ticketController.getTicketById);
+app.put("/api/admin/ticket/:id/reply", authMiddleware, ticketController.replyToTicket);
+app.put("/api/admin/ticket/:id/status", authMiddleware, ticketController.updateTicketStatus);
+
+// Standard Domain Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/customers", userRoutes);
+app.use("/api/customers", userRoutes); // Alias for admin panel consistency
 app.use("/api/cart", cartRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/invoices", invoiceRoutes);
-app.use("/api/shipping", shippingRoutes);
-app.use("/api/tracking", shippingRoutes); // Alias for public tracking
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/discounts", discountRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/shipping", shippingRoutes);
+app.use("/api/tracking", shippingRoutes);
+
+// Support Ticket System (Universal fallback mount)
 app.use("/api/tickets", ticketRoutes);
+
 app.use("/api/contact", contactRoutes);
 app.use("/api/offer-videos", offerVideoRoutes);
+app.use("/api/invoices", invoiceRoutes);
 
 // 404 Handler for undefined routes
 app.use((req, res) => {
     const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
     console.log(`🛑 404 DEBUG: ${req.method} ${fullUrl}`);
-    console.log(`   Headers: ${JSON.stringify(req.headers)}`);
-
     res.status(404).json({
         success: false,
-        message: `Route ${req.method} ${req.originalUrl} not found. [VERSION: 1.0.3-diag]`,
-        suggestedPath: req.originalUrl.includes('notification') ? '/api/notifications/unread-count' : null
+        message: `Route ${req.method} ${req.originalUrl} not found. [VERSION: 1.0.6-prod]`,
     });
 });
 
-/* ✅ GLOBAL ERROR HANDLER */
-// This catches any errors thrown in your routes so the server doesn't crash
+/* ✅ STEP 6 — GLOBAL ERROR HANDLER */
 app.use((err, req, res, next) => {
+    console.error("🔥 Global Error Handler:", err.stack);
     const statusCode = err.statusCode || 500;
     res.status(statusCode).json({
         success: false,
@@ -206,7 +180,6 @@ const PORT = process.env.PORT || 5001;
 const { execSync } = require('child_process');
 
 function startServer() {
-    // Only create directories and listen on a port if NOT on Vercel
     if (!process.env.VERCEL) {
         const fs = require('fs');
         const path = require('path');
@@ -216,49 +189,31 @@ function startServer() {
         });
 
         server.listen(PORT, () => {
-            console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+            console.log(`🚀 Server running on port ${PORT}`);
         });
     }
 }
 
-// Auto-recover from port conflicts (EADDRINUSE)
+// Auto-recover from port conflicts (Local Only)
 server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.error(`\n⚠️  Port ${PORT} is in use. Auto-killing old process...\n`);
+    if (err.code === 'EADDRINUSE' && !process.env.VERCEL) {
+        console.error(`Port ${PORT} in use. Attempting auto-recovery...`);
         try {
-            // Get the PID using netstat, parse it in JS (avoids shell loop issues)
-            const raw = execSync(
-                `netstat -ano | findstr :${PORT} | findstr LISTENING`,
-                { shell: 'cmd' }
-            ).toString();
-
+            const raw = execSync(`netstat -ano | findstr :${PORT} | findstr LISTENING`, { shell: 'cmd' }).toString();
             const pids = new Set();
             raw.trim().split('\n').forEach(line => {
-                const parts = line.trim().split(/\s+/);
-                const pid = parts[parts.length - 1];
-                if (pid && pid !== '0' && !isNaN(pid)) pids.add(pid);
+                const pid = line.trim().split(/\s+/).pop();
+                if (pid && !isNaN(pid)) pids.add(pid);
             });
-
-            pids.forEach(pid => {
-                try {
-                    execSync(`taskkill /PID ${pid} /F`, { shell: 'cmd', stdio: 'ignore' });
-                    console.log(`✅ Killed PID ${pid}`);
-                } catch (_) { }
-            });
-
-            console.log(`🔄 Restarting server on port ${PORT} in 1s...`);
+            pids.forEach(pid => execSync(`taskkill /PID ${pid} /F`, { shell: 'cmd', stdio: 'ignore' }));
             setTimeout(startServer, 1000);
         } catch (e) {
-            console.error(`❌ Auto-kill failed. Manually run:\n   netstat -ano | findstr :${PORT}\n   taskkill /PID <pid> /F`);
             process.exit(1);
         }
-    } else {
-        console.error('❌ Server error:', err.message);
-        process.exit(1);
     }
 });
 
 startServer();
 
-// Export the Express app for Vercel Serverless Functions
+// Export for Vercel
 module.exports = app;
