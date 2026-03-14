@@ -80,28 +80,41 @@ if (!cached) {
     cached = global.mongoose = { conn: null, promise: null };
 }
 
-// ✅ STEP 5 — VERIFY DATABASE CONNECTION
-const connectDB = async () => {
-    try {
-        if (mongoose.connection.readyState >= 1) return mongoose.connection;
+// Ensure bufferCommands is explicitly enabled globally to prevent race conditions
+mongoose.set('bufferCommands', true);
 
-        console.log("⏳ Attempting to connect to MongoDB...");
-        const conn = await mongoose.connect(process.env.MONGO_URI, {
+const connectDB = async () => {
+    if (cached.conn) {
+        return cached.conn;
+    }
+
+    if (!cached.promise) {
+        console.log("⏳ Initializing new MongoDB connection pool...");
+        const opts = {
+            bufferCommands: true,
             serverSelectionTimeoutMS: 5000,
-            bufferCommands: false
+        };
+
+        cached.promise = mongoose.connect(process.env.MONGO_URI, opts).then((mongoose) => {
+            console.log(`✅ MongoDB Connected Successfully: ${mongoose.connection.host}`);
+            return mongoose;
         });
-        console.log(`✅ MongoDB Connected Successfully: ${conn.connection.host}`);
-        return conn;
-    } catch (err) {
-        console.error(`❌ MongoDB Connection Error: ${err.message}`);
+    }
+
+    try {
+        cached.conn = await cached.promise;
+    } catch (e) {
+        cached.promise = null;
+        console.error(`❌ MongoDB Connection Error: ${e.message}`);
         if (process.env.VERCEL) {
             console.error("Critical: Database connection failed in production.");
         } else {
             console.warn("DB Connection failed, exiting local process...");
             process.exit(1);
         }
-        throw err;
+        throw e;
     }
+    return cached.conn;
 };
 
 // Initial connection attempt
@@ -113,13 +126,29 @@ app.use(async (req, res, next) => {
         await connectDB();
         next();
     } catch (err) {
-        res.status(500).json({ success: false, message: "Database connection failed", error: err.message });
+        console.error("🔥 DB MIDDLWARE ERROR:", err.message);
+        res.status(500).json({ 
+            success: false, 
+            message: "Database connection failed", 
+            error: err.message,
+            tip: "Check MONGO_URI and IP Whitelisting (0.0.0.0/0)" 
+        });
     }
 });
 
 /* ✅ API ROUTES */
-// ✅ STEP 2 & 3 — SCAN & FIX ROUTES
-app.get("/api/ping", (req, res) => res.json({ status: "online", version: "1.0.6-prod", timestamp: new Date().toISOString() }));
+app.get("/api/ping", (req, res) => {
+    const mongoStatus = mongoose.connection.readyState;
+    const statusMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+    
+    res.json({ 
+        status: "online", 
+        version: "1.0.9-diagnostics", 
+        database: statusMap[mongoStatus] || 'unknown',
+        hasUri: !!process.env.MONGO_URI,
+        timestamp: new Date().toISOString() 
+    });
+});
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // 👑 HIGH PRIORITY EXPLICT ROUTES (Matches Frontend Expectations Exactly)

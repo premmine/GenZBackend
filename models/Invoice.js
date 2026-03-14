@@ -50,4 +50,4 @@ const InvoiceSchema = new mongoose.Schema({
 // Index for email lookup
 InvoiceSchema.index({ customerEmail: 1 });
 
-module.exports = mongoose.model('Invoice', InvoiceSchema);
+module.exports = mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema);

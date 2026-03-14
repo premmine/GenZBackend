@@ -39,4 +39,4 @@ const NotificationSchema = new mongoose.Schema({
 // Auto-delete after 30 days (TTL Index)
 NotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
-module.exports = mongoose.model('Notification', NotificationSchema);
+module.exports = mongoose.models.Notification || mongoose.model('Notification', NotificationSchema);

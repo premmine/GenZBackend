@@ -23,8 +23,10 @@ router.get('/:id', ticketController.getTicketById);
 router.put('/:id/reply', ticketController.replyToTicket);
 router.patch('/:id/reply', ticketController.replyToTicket);   // PATCH alias
 
-// PUT /api/tickets/:id/status  — update ticket status
-router.put('/:id/status', ticketController.updateTicketStatus);
-router.patch('/:id/status', ticketController.updateTicketStatus); // PATCH alias
+const adminMiddleware = require('../middlewares/adminMiddleware');
+
+// PUT /api/tickets/:id/status  — update ticket status (Admin only)
+router.put('/:id/status', adminMiddleware, ticketController.updateTicketStatus);
+router.patch('/:id/status', adminMiddleware, ticketController.updateTicketStatus); // PATCH alias
 
 module.exports = router;

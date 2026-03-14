@@ -16,4 +16,4 @@ const StockSubscriptionSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('StockSubscription', StockSubscriptionSchema);
+module.exports = mongoose.models.StockSubscription || mongoose.model('StockSubscription', StockSubscriptionSchema);

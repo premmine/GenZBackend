@@ -42,4 +42,4 @@ ProductSchema.index({
     name: "ProductSearchIndex"
 });
 
-module.exports = mongoose.model('Product', ProductSchema);
+module.exports = mongoose.models.Product || mongoose.model('Product', ProductSchema);

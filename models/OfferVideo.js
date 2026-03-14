@@ -10,4 +10,4 @@ const offerVideoSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
-module.exports = mongoose.model('OfferVideo', offerVideoSchema);
+module.exports = mongoose.models.OfferVideo || mongoose.model('OfferVideo', offerVideoSchema);
