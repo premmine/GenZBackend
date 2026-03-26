@@ -135,11 +135,17 @@ exports.setDefaultAddress = async (req, res) => {
 exports.updateMe = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { image } = req.body;
+        const { image, name, phone, whatsapp } = req.body;
+
+        const updateData = {};
+        if (image !== undefined) updateData.image = image;
+        if (name !== undefined) updateData.name = name;
+        if (phone !== undefined) updateData.phone = phone;
+        if (whatsapp !== undefined) updateData.whatsapp = whatsapp;
 
         const updatedUser = await User.findByIdAndUpdate(
             userId,
-            { image },
+            updateData,
             { new: true }
         );
 
@@ -148,5 +154,15 @@ exports.updateMe = async (req, res) => {
         res.json(updatedUser);
     } catch (err) {
         res.status(400).json({ message: err.message });
+    }
+};
+
+exports.getMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
 };

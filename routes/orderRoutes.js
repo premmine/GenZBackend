@@ -8,6 +8,7 @@ const adminMiddleware = require('../middlewares/adminMiddleware');
 router.use(authMiddleware);
 
 router.get('/', orderController.getOrders);
+router.post('/', orderController.addOrder);
 router.get('/user/orders', orderController.getOrders); // Explicitly for profile view
 router.get('/:id', orderController.getOrderDetails);
 

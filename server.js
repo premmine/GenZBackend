@@ -164,6 +164,8 @@ app.put("/api/admin/ticket/:id/reply", authMiddleware, ticketController.replyToT
 app.put("/api/admin/ticket/:id/status", authMiddleware, ticketController.updateTicketStatus);
 
 // Standard Domain Routes
+const settingsRoutes = require('./routes/settingsRoutes');
+
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
@@ -175,6 +177,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/shipping", shippingRoutes);
 app.use("/api/tracking", shippingRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Support Ticket System (Universal fallback mount)
 app.use("/api/tickets", ticketRoutes);

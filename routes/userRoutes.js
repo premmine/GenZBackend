@@ -7,6 +7,7 @@ const adminMiddleware = require('../middlewares/adminMiddleware');
 router.use(authMiddleware);
 
 // Publicly accessible for authenticated users
+router.get('/me', userController.getMe);
 router.patch('/me', userController.updateMe);
 router.post('/address', userController.addAddress);
 router.put('/address/:addressId', userController.updateAddress);
